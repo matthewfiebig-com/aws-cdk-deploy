@@ -63,7 +63,8 @@ export class AwsCdkDeployStack extends cdk.Stack {
                 regionConcurrencyType: RegionConcurrencyType.PARALLEL,
                 failureToleranceCount: 5,
                 failureTolerancePercentage: 100
-            }
+            },
+            description: 'This stack includes resources needed to deploy AWS CDK apps into this environment'
         });
     }
 }
