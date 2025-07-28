@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import * as stackset from 'cdk-stacksets'
-import {RegionConcurrencyType} from 'cdk-stacksets'
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -8,6 +7,7 @@ import {Construct} from 'constructs';
 
 interface AwsCdkDeployStackProps extends cdk.StackProps {
     orgId: string;
+    rootOu: string
 }
 
 export class AwsCdkDeployStack extends cdk.Stack {
@@ -27,7 +27,7 @@ export class AwsCdkDeployStack extends cdk.Stack {
             })
         );
 
-        new s3deploy.BucketDeployment(this, 'DeployAssets', {
+        const deployment = new s3deploy.BucketDeployment(this, 'DeployAssets', {
             sources: [s3deploy.Source.asset('./assets')],
             destinationBucket: bucket,
             extract: true
@@ -37,7 +37,7 @@ export class AwsCdkDeployStack extends cdk.Stack {
             value: bucket.bucketName,
         })
 
-        new stackset.StackSet(this, 'StackSet', {
+        const ss = new stackset.StackSet(this, 'StackSet', {
             stackSetName: 'CdkDeployStackSet',
             template: {
                 templateUrl: bucket.urlForObject('cdk-bootstrap.template.yml'),
@@ -50,7 +50,7 @@ export class AwsCdkDeployStack extends cdk.Stack {
             }),
             managedExecution: true,
             target: stackset.StackSetTarget.fromOrganizationalUnits({
-                organizationalUnits: ['r-go9v'],
+                organizationalUnits: [props.rootOu],
                 regions: ['us-west-2'],
                 parameterOverrides: {
                     'TrustedAccounts': managementAccount,
@@ -60,11 +60,13 @@ export class AwsCdkDeployStack extends cdk.Stack {
             }),
             operationPreferences: {
                 maxConcurrentCount: 5,
-                regionConcurrencyType: RegionConcurrencyType.PARALLEL,
+                regionConcurrencyType: stackset.RegionConcurrencyType.PARALLEL,
                 failureToleranceCount: 5,
                 failureTolerancePercentage: 100
             },
-            description: 'This stack includes resources needed to deploy AWS CDK apps into this environment'
+            description: 'This stack includes resources needed to deploy AWS CDK apps into this environment',
         });
+
+        ss.node.addDependency(deployment)
     }
 }
